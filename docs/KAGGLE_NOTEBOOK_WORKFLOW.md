@@ -1,37 +1,54 @@
-# Kaggleノートブック自動化ワークフロー
+# Kaggleノートブック開発・提出ワークフロー
 
 ## 概要
 
-手動コピペから脱却し、Pythonコードから.ipynbファイルを自動生成してKaggle APIで直接アップロードする運用に変更しました。
+NeurIPS Open Polymer Prediction 2025コンペティション用のKaggleノートブック開発から提出までの包括的なワークフローガイドです。自動化ツールの使用・非使用両方に対応しています。
 
-## 新しいワークフロー
+## 開発ワークフロー選択肢
 
-### 1. 従来の手動運用（廃止）
-```
-Python コード → 手動コピペ → Kaggle Notebook → 手動実行・提出
-```
-
-### 2. 新しい自動化運用
+### 🔄 自動化ワークフロー（推奨）
 ```
 Python コード → .ipynb 自動生成 → Kaggle API アップロード → Kaggle実行・提出
 ```
+**メリット**: 効率的、エラー減少、バージョン管理容易
+
+### ✋ 手動ワークフロー
+```
+Python コード → 手動.ipynb作成 → 手動アップロード → Kaggle実行・提出
+```
+**メリット**: 細かい制御、学習効果、ツール依存なし
 
 ## 必要な環境設定
 
-### Kaggle API設定
-1. Kaggleアカウントの設定ページでAPI Tokenをダウンロード
+### 共通設定
+
+#### Kaggle API設定
+1. [Kaggleアカウントの設定ページ](https://www.kaggle.com/account)でAPI Tokenをダウンロード
 2. `~/.kaggle/kaggle.json` に配置
 3. 権限設定: `chmod 600 ~/.kaggle/kaggle.json`
 
-### 必要なパッケージ
+#### プロジェクト環境
 ```bash
+# UVを使用した依存関係管理
+uv sync
+
+# または従来のpip
+pip install pandas numpy scikit-learn xgboost catboost rdkit-pypi
+```
+
+### 自動化ツール使用時の追加設定
+```bash
+# 自動化ツール用パッケージ
+uv add kaggle nbformat
+# または
 pip install kaggle nbformat
 ```
 
 ## 使用方法
 
-### 基本的な使用方法
+### 1️⃣ 自動化ワークフロー
 
+#### 基本的な使用方法
 ```bash
 # 基本コマンド
 python scripts/create_kaggle_notebook.py \
@@ -53,27 +70,39 @@ python scripts/create_kaggle_notebook.py \
     --update
 ```
 
-### 簡単アップロード（ベースライン）
-
+#### 簡単アップロード（ベースライン）
 ```bash
 # ベースラインノートブックの簡単アップロード
 ./scripts/upload_baseline.sh
 ```
 
-## コード構造の要件
+### 2️⃣ 手動ワークフロー
 
-### セクション分割
-Pythonコードは以下の区切り文字で自動的にノートブックセルに分割されます：
+#### Step 1: ローカル開発・テスト
+```bash
+# ローカル実験実行
+python experiments/polymer_prediction_baseline/scripts/local_polymer_prediction.py
 
-```python
-# ============================================================================
-# セクションタイトル
-# ============================================================================
+# クイックテスト
+python experiments/polymer_prediction_baseline/tests/quick_test.py
 ```
 
-### マークダウンセルの作成
-セクション区切りの直後に `#` で始まるタイトルがある場合、マークダウンセルとして処理されます：
+#### Step 2: Kaggleノートブック手動作成
+1. Kaggle Kernels画面で「New Notebook」作成
+2. `kaggle_notebooks/templates/` からコードをコピー
+3. 必要に応じてコードを調整・修正
+4. セル分割とマークダウン追加
 
+#### Step 3: 手動アップロード・実行
+1. Kaggle Kernelで「Save Version」
+2. 「Run All」でノートブック実行
+3. 「Submit to Competition」で提出
+
+## コード構造とベストプラクティス
+
+### Pythonコードの構造化
+
+#### 自動化ツール用：セクション分割
 ```python
 # ============================================================================
 # データ読み込みと前処理
@@ -83,65 +112,156 @@ Pythonコードは以下の区切り文字で自動的にノートブックセ�
 # - CSVファイルの読み込み
 # - 欠損値の確認
 # - データ型の最適化
+
+import pandas as pd
+import numpy as np
+
+# データ読み込み
+train = pd.read_csv('/kaggle/input/neurips-open-polymer-prediction-2025/train.csv')
+test = pd.read_csv('/kaggle/input/neurips-open-polymer-prediction-2025/test.csv')
+```
+
+#### 手動作成用：コメント活用
+```python
+"""
+=== データ読み込みと前処理 ===
+このセクションではデータの読み込みと基本的な前処理を行います
+"""
+
+import pandas as pd
+import numpy as np
+
+# データ読み込み
+train = pd.read_csv('/kaggle/input/neurips-open-polymer-prediction-2025/train.csv')
+test = pd.read_csv('/kaggle/input/neurips-open-polymer-prediction-2025/test.csv')
+
+print(f"訓練データ形状: {train.shape}")
+print(f"テストデータ形状: {test.shape}")
+```
+
+### Kaggle環境対応コード
+
+#### オフライン実行対応
+```python
+import sys
+import os
+
+# Kaggle環境判定
+KAGGLE_ENV = '/kaggle/input' in sys.path[0] if sys.path else False
+
+if KAGGLE_ENV:
+    # Kaggle環境でのデータパス
+    DATA_PATH = '/kaggle/input/neurips-open-polymer-prediction-2025/'
+else:
+    # ローカル環境でのデータパス
+    DATA_PATH = 'data/raw/'
+```
+
+#### 依存関係インストール（Kaggle環境）
+```python
+# Kaggle環境でのRDKitインストール例
+import subprocess
+import sys
+
+try:
+    import rdkit
+    print("✅ RDKit利用可能")
+except ImportError:
+    print("📦 RDKitをインストール中...")
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'rdkit-pypi'])
+    import rdkit
+    print("✅ RDKitインストール完了")
 ```
 
 ## ファイル構造
 
 ```
 kaggle_notebooks/
-├── templates/          # Pythonテンプレート
-│   ├── complete_baseline_notebook.py
-│   └── submission_template.py
-├── submission/         # 生成された.ipynbファイル
-│   └── neurips_polymer_baseline_random_forest.ipynb
-└── references/         # 参考ノートブック
-    └── neurips-2025-open-polymer-challenge-tutorial.ipynb
+├── templates/              # 開発用テンプレート
+│   ├── complete_baseline_notebook.py    # 完全ベースライン
+│   ├── submission_template.py           # 提出用テンプレート
+│   └── development/                     # 開発用分割テンプレート
+│       ├── eda_template.py              # データ探索
+│       ├── feature_engineering_template.py  # 特徴量
+│       └── model_comparison_template.py      # モデル比較
+├── submission/             # 提出用ノートブック（自動生成）
+│   └── neurips_polymer_advanced_ensemble/
+│       ├── neurips_polymer_advanced_ensemble.ipynb
+│       └── kernel-metadata.json
+└── references/             # 参考ノートブック
+    ├── neurips-2025-open-polymer-challenge-tutorial.ipynb
+    └── open-polymer-prediction-2025.ipynb
 ```
 
-## 自動生成されるファイル
+## 実行環境の選択肢
 
-### 1. Jupyterノートブック (.ipynb)
-- Pythonコードから自動変換
-- セルが適切に分割済み
-- マークダウンとコードセルが混在
+### ローカル開発環境
+```bash
+# 完全なローカル実行（WandB統合）
+python experiments/polymer_prediction_baseline/scripts/local_polymer_prediction_with_wandb.py
 
-### 2. メタデータファイル (kernel-metadata.json)
-```json
-{
-  "title": "NeurIPS Polymer Baseline - Random Forest",
-  "id": "chinchillaa/neurips-polymer-baseline-random-forest",
-  "licenses": [{"name": "CC0-1.0"}],
-  "keywords": ["polymer", "prediction", "neurips", "machine-learning"],
-  "datasets": [],
-  "competitions": [{"source": "neurips-open-polymer-prediction-2025"}],
-  "kernelType": "notebook",
-  "isInternetEnabled": false,
-  "language": "python",
-  "enableGpu": false,
-  "enableTpu": false
-}
+# 基本ローカル実行
+python experiments/polymer_prediction_baseline/scripts/local_polymer_prediction.py
+
+# シェルスクリプト実行
+./experiments/polymer_prediction_baseline/scripts/run_experiment.sh --install
 ```
 
-## メリット
+### Kaggle環境
+- **CPU環境**: 9時間制限、インターネット無効
+- **GPU環境**: 9時間制限、GPU利用可能（必要に応じて）
+- **TPU環境**: 特殊用途（このコンペでは通常不要）
 
-### 🚀 開発効率の向上
-- コピペエラーの排除
-- バージョン管理の一元化
-- 一括アップロード・更新
+## メリット・デメリット比較
 
-### 🔄 自動化による品質向上
-- 一貫したフォーマット
-- メタデータの自動生成
-- 依存関係の自動設定
+### 🔄 自動化ワークフロー
 
-### 📝 保守性の向上
-- ソースコードとノートブックの同期
-- Git履歴での変更追跡
-- 複数ノートブックの一括管理
+**メリット**:
+- ⚡ 高速な開発・デプロイサイクル
+- 🚫 コピペエラーの排除
+- 📝 一貫したフォーマット
+- 🔄 バージョン管理との統合
+- 📦 メタデータの自動生成
+
+**デメリット**:
+- 🛠️ 初期セットアップが必要
+- 🔧 ツール依存
+- 📚 学習コストあり
+
+### ✋ 手動ワークフロー
+
+**メリット**:
+- 🎯 細かい制御が可能
+- 📖 学習効果が高い
+- 🆓 ツール依存なし
+- 🔍 デバッグが容易
+
+**デメリット**:
+- ⏰ 時間がかかる
+- 🐛 ヒューマンエラーのリスク
+- 🔄 同期の手間
+- 📊 バージョン管理の複雑さ
 
 ## トラブルシューティング
 
-### よくあるエラー
+### 共通問題
+
+1. **Kaggleデータアクセスエラー**
+   ```
+   解決方法: コンペティション参加確認、データセット存在確認
+   ```
+
+2. **依存パッケージエラー**
+   ```
+   解決方法: pip installまたはKaggle環境での明示的インストール
+   ```
+
+3. **メモリ不足エラー**
+   ```
+   解決方法: データサンプリング、特徴量削減、モデル簡素化
+   ```
+
+### 自動化ツール固有の問題
 
 1. **Kaggle API認証エラー**
    ```
@@ -153,10 +273,37 @@ kaggle_notebooks/
    解決方法: --update オプションを使用するか、異なるタイトルを指定
    ```
 
-3. **依存パッケージエラー**
+3. **nbformat変換エラー**
    ```
-   解決方法: pip install kaggle nbformat
+   解決方法: pip install nbformat --upgrade
    ```
+
+## 推奨開発フロー
+
+### 初心者向け
+1. 手動ワークフローで基本を理解
+2. ローカル実験で機能検証
+3. 手動でKaggleノートブック作成・提出
+4. 慣れてきたら自動化ツールを導入
+
+### 経験者向け
+1. 自動化ワークフローを最初から活用
+2. テンプレートを拡張・カスタマイズ
+3. CI/CDパイプラインと統合
+4. 複数バリエーションの並行開発
+
+## 関連リソース
+
+### プロジェクト内ファイル
+- `scripts/create_kaggle_notebook.py` - 自動化メインスクリプト
+- `scripts/upload_baseline.sh` - 簡単アップロード用
+- `kaggle_notebooks/templates/` - 開発用テンプレート
+- `experiments/polymer_prediction_baseline/` - ローカル実験環境
+
+### 外部リソース
+- [Kaggle API Documentation](https://github.com/Kaggle/kaggle-api)
+- [Jupyter Notebook Format](https://nbformat.readthedocs.io/)
+- [NeurIPS Open Polymer Prediction 2025](https://www.kaggle.com/competitions/neurips-open-polymer-prediction-2025)
 
 ## 今後の拡張予定
 
@@ -165,10 +312,4 @@ kaggle_notebooks/
 - [ ] 複数バリエーションの一括アップロード
 - [ ] テンプレートエンジンの統合
 - [ ] CI/CDパイプラインとの統合
-
-## 関連ファイル
-
-- `scripts/create_kaggle_notebook.py` - メインスクリプト
-- `scripts/upload_baseline.sh` - 簡単アップロード用
-- `kaggle_notebooks/templates/` - Pythonテンプレート
-- `kaggle_notebooks/submission/` - 生成されたノートブック
+- [ ] 手動ワークフロー用のヘルパーツール
