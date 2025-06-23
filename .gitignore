@@ -100,3 +100,10 @@ wandb/
 
 # Temporary kaggle upload directory
 kaggle_upload/
+
+# Claude Code 作業用ファイル
+CLAUDE.md
+tmp/
+
+# 中間成果物とバックアップ
+work_backup/
