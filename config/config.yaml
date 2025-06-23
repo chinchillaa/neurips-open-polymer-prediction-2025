@@ -1,0 +1,56 @@
+project:
+  name: "neurips-open-polymer-prediction-2025"
+  version: "0.1.0"
+  description: "NeurIPS Open Polymer Prediction 2025 Competition"
+
+# WandB configuration
+wandb:
+  project: "neurips-polymer-prediction"
+  entity: null  # WandBユーザー名またはチーム名を設定
+  enabled: false  # 初回は無効にしてモデル動作確認
+  tags: 
+    - "polymer-prediction"
+    - "neurips-2025"
+  notes: "NeurIPS Open Polymer Prediction 2025 competition experiments"
+  save_code: true
+  log_model: true
+  artifact_dir: "wandb_artifacts"
+
+data:
+  raw_dir: "data/raw"
+  interim_dir: "data/interim"
+  processed_dir: "data/processed"
+  external_dir: "data/external"
+
+models:
+  trained_dir: "models/trained"
+  checkpoints_dir: "models/checkpoints"
+  submissions_dir: "models/submissions"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+random_seed: 42
+
+# Model parameters (to be updated based on competition requirements)
+model:
+  type: "baseline"
+  parameters:
+    n_estimators: 100
+    random_state: 42
+
+# Training parameters
+training:
+  test_size: 0.2
+  validation_size: 0.2
+  cross_validation:
+    n_splits: 5
+    shuffle: true
+    random_state: 42
+
+# Feature engineering
+features:
+  molecular_descriptors: true
+  fingerprints: true
+  target_encoding: false
