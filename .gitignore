@@ -84,7 +84,8 @@ models/checkpoints/
 models/submissions/*.csv
 
 # Project specific - Experiment tracking
-experiments/
+experiments/*/experiments_results/
+experiments/*/wandb/
 reports/figures/
 
 # Secrets and API keys
@@ -92,7 +93,7 @@ reports/figures/
 secrets.yaml
 kaggle.json
 
-# WandB (for local development only)
+# WandB (for local development only)  
 wandb/
 
 # UV lock file (keep it for reproducibility)
@@ -107,3 +108,6 @@ tmp/
 
 # 中間成果物とバックアップ
 work_backup/
+
+# 提出用Kaggleノートブック
+kaggle_notebooks/submission/

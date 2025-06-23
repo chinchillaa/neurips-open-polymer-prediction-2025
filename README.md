@@ -19,23 +19,32 @@ neurips-open-polymer-prediction-2025/
 │   └── external/            # 外部データソース
 ├── docs/                    # ドキュメント
 │   └── CODE_COMPETITION_GUIDE.md  # コードコンペ完全ガイド
-├── experiments/             # 実験追跡（WandB用）
-├── kaggle_notebooks/        # コードコンペ用ノートブック
-│   ├── development/        # 開発用テンプレート
-│   │   ├── eda_template.py          # データ探索
-│   │   ├── feature_engineering_template.py  # 特徴量エンジニアリング
-│   │   └── model_comparison_template.py     # モデル比較
-│   ├── final_submission/   # 最終提出用ガイド
+├── experiments/             # ローカル実験管理
+│   └── polymer_prediction_baseline/  # ベースライン実験
+│       ├── local_polymer_prediction.py  # ローカル実行スクリプト
+│       ├── run_experiment.sh           # 実験実行スクリプト
+│       └── README.md                   # 実験ドキュメント
+├── kaggle_notebooks/        # Kaggle環境専用ノートブック
+│   ├── references/         # 参考ノートブック
+│   │   ├── neurips-2025-open-polymer-challenge-tutorial.ipynb
+│   │   └── open-polymer-prediction-2025.ipynb
+│   ├── submission/         # 提出用ノートブック
+│   │   └── neurips_polymer_advanced_ensemble/
+│   │       ├── neurips_polymer_advanced_ensemble.ipynb
+│   │       └── kernel-metadata.json
 │   └── templates/          # 再利用可能テンプレート
-│       └── submission_template.py   # Kaggle提出テンプレート
+│       ├── development/    # 開発用テンプレート
+│       │   ├── eda_template.py          # データ探索
+│       │   ├── feature_engineering_template.py  # 特徴量エンジニアリング
+│       │   ├── model_comparison_template.py     # モデル比較
+│       │   └── README.md                        # テンプレート使用方法
+│       ├── baseline_submission.py       # ベースライン提出用
+│       ├── complete_baseline_notebook.py # 完全ベースライン
+│       └── submission_template.py       # Kaggle提出テンプレート
 ├── models/                  # モデル成果物
 │   ├── trained/            # 訓練済みモデル
 │   ├── checkpoints/        # モデルチェックポイント
 │   └── submissions/        # 提出ファイル
-├── notebooks/              # Jupyterノートブック（ローカル開発用）
-│   ├── exploratory/       # EDAノートブック
-│   ├── modeling/          # モデル開発
-│   └── evaluation/        # モデル評価
 ├── reports/               # 分析レポート
 │   ├── figures/          # 生成された図表
 │   └── final/            # 最終レポート
@@ -106,17 +115,27 @@ neurips-open-polymer-prediction-2025/
 ### 開発ワークフロー
 
 #### ローカル開発フェーズ
-1. **探索的データ分析**: `kaggle_notebooks/development/eda_template.py` から開始
-2. **特徴量エンジニアリング**: `kaggle_notebooks/development/feature_engineering_template.py` で特徴量を実装
-3. **モデル比較**: `kaggle_notebooks/development/model_comparison_template.py` で複数モデルを評価
-4. **訓練**: `uv run scripts/train_model.py` または `make train` を使用
-5. **評価**: `notebooks/evaluation/` で結果を分析
+1. **ベースライン実験**: `experiments/polymer_prediction_baseline/run_experiment.sh` でベースライン実行
+2. **探索的データ分析**: `kaggle_notebooks/templates/development/eda_template.py` から開始
+3. **特徴量エンジニアリング**: `kaggle_notebooks/templates/development/feature_engineering_template.py` で特徴量を実装
+4. **モデル比較**: `kaggle_notebooks/templates/development/model_comparison_template.py` で複数モデルを評価
+5. **訓練**: `uv run scripts/train_model.py` または `make train` を使用
 
 #### コードコンペ提出フェーズ
-1. **モデル準備**: `scripts/prepare_kaggle_dataset.py` で訓練済みモデルをパッケージ化
-2. **Kaggleデータセット作成**: 訓練済みモデルをKaggleにアップロード
-3. **最終ノートブック作成**: `kaggle_notebooks/templates/submission_template.py` をベースに作成
-4. **Kaggle提出**: ノートブックをKaggleで実行・提出
+1. **ノートブック自動生成**: `scripts/create_kaggle_notebook.py` でPythonコードから.ipynb生成
+2. **Kaggle自動アップロード**: Kaggle APIで直接ノートブックをアップロード
+3. **Kaggle実行・提出**: アップロードされたノートブックをKaggleで実行・提出
+
+```bash
+# 簡単アップロード
+./scripts/upload_baseline.sh
+
+# カスタマイズアップロード
+python scripts/create_kaggle_notebook.py \
+    --input "kaggle_notebooks/templates/complete_baseline_notebook.py" \
+    --title "My Baseline Model" \
+    --public
+```
 
 ### 利用可能なコマンド
 

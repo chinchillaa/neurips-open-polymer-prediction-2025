@@ -53,7 +53,7 @@ results = run_model_comparison(train_df, feature_cols, target_cols)
 
 ### Step 1: データ探索
 ```bash
-cd kaggle_notebooks/development
+cd kaggle_notebooks/templates/development
 python eda_template.py
 ```
 

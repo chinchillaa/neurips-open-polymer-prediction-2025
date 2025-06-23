@@ -25,17 +25,17 @@ This guide provides comprehensive instructions for participating in the NeurIPS 
 
 2. **Exploratory Data Analysis**
    ```bash
-   python kaggle_notebooks/development/eda_template.py
+   python kaggle_notebooks/templates/development/eda_template.py
    ```
 
 3. **Feature Engineering**
    ```bash
-   python kaggle_notebooks/development/feature_engineering_template.py
+   python kaggle_notebooks/templates/development/feature_engineering_template.py
    ```
 
 4. **Model Comparison**
    ```bash
-   python kaggle_notebooks/development/model_comparison_template.py
+   python kaggle_notebooks/templates/development/model_comparison_template.py
    ```
 
 5. **Model Training**

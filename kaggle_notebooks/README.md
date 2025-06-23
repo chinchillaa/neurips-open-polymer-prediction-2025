@@ -6,15 +6,22 @@
 
 ```
 kaggle_notebooks/
-├── development/           # 開発用テンプレート
-│   ├── eda_template.py           # データ探索分析
-│   ├── feature_engineering_template.py  # 特徴量エンジニアリング
-│   ├── model_comparison_template.py     # モデル比較
-│   └── README.md                        # 開発テンプレート使用方法
-├── final_submission/      # 最終提出用ガイド
-│   └── README.md                 # 提出手順とチェックリスト
-└── templates/            # 再利用可能テンプレート
-    └── submission_template.py    # Kaggle提出用テンプレート
+├── references/           # 参考ノートブック
+│   ├── neurips-2025-open-polymer-challenge-tutorial.ipynb
+│   └── open-polymer-prediction-2025.ipynb
+├── submission/          # 提出用ノートブック
+│   └── neurips_polymer_advanced_ensemble/
+│       ├── kernel-metadata.json
+│       └── neurips_polymer_advanced_ensemble.ipynb
+└── templates/           # 再利用可能テンプレート
+    ├── development/     # 開発用テンプレート
+    │   ├── eda_template.py           # データ探索分析
+    │   ├── feature_engineering_template.py  # 特徴量エンジニアリング
+    │   ├── model_comparison_template.py     # モデル比較
+    │   └── README.md                        # 開発テンプレート使用方法
+    ├── baseline_submission.py       # ベースライン提出用
+    ├── complete_baseline_notebook.py # 完全ベースライン
+    └── submission_template.py       # Kaggle提出用テンプレート
 ```
 
 ## 開発ワークフロー
@@ -30,7 +37,7 @@ kaggle_notebooks/
 3. **テスト**: Kaggle環境での動作確認
 
 ### Phase 3: 最終提出
-1. **チェック**: `final_submission/README.md`のチェックリストを確認
+1. **最終チェック**: 提出用ノートブックの動作確認
 2. **提出**: Kaggleノートブックとして提出
 
 ## 主要機能
