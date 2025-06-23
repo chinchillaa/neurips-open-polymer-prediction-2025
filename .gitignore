@@ -83,6 +83,9 @@ models/trained/
 models/checkpoints/
 models/submissions/*.csv
 
+# ML library artifacts
+catboost_info/
+
 # Project specific - Experiment tracking
 experiments/*/experiments_results/
 experiments/*/wandb/

@@ -253,7 +253,8 @@ def train_models_for_target(X, y, target_name, wandb_available=False, n_splits=5
         ),
         'CatBoost': CatBoostRegressor(
             iterations=100, depth=6, learning_rate=0.1,
-            random_seed=SEED, verbose=False
+            random_seed=SEED, verbose=False,
+            train_dir=str(EXPERIMENT_DIR / "catboost_info")
         ),
         'RandomForest': RandomForestRegressor(
             n_estimators=100, max_depth=10, random_state=SEED, n_jobs=-1

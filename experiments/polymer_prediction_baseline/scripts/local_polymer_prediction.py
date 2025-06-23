@@ -503,7 +503,9 @@ def train_advanced_model(df, target_col, feature_cols, n_splits=5, seed=42):
         
         # CatBoost
         try:
-            cat_model = CatBoostRegressor(**hyperparams['cat'], random_seed=seed+fold, verbose=False)
+            cat_params = hyperparams['cat'].copy()
+            cat_params['train_dir'] = str(EXPERIMENT_DIR / "catboost_info")
+            cat_model = CatBoostRegressor(**cat_params, random_seed=seed+fold, verbose=False)
             cat_model.fit(X_train, y_train)
             cat_preds = cat_model.predict(X_val)
             fold_preds.append(cat_preds)
