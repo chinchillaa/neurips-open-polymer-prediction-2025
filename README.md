@@ -18,15 +18,21 @@ neurips-open-polymer-prediction-2025/
 │   ├── processed/           # 最終処理済みデータ
 │   └── external/            # 外部データソース
 ├── docs/                    # ドキュメント
-├── experiments/             # 実験追跡
-├── kaggle_submission_package/  # Kaggle提出ファイル
-├── kaggle_upload/           # Kaggleデータセットアップロード用ファイル
+│   └── CODE_COMPETITION_GUIDE.md  # コードコンペ完全ガイド
+├── experiments/             # 実験追跡（WandB用）
+├── kaggle_notebooks/        # コードコンペ用ノートブック
+│   ├── development/        # 開発用テンプレート
+│   │   ├── eda_template.py          # データ探索
+│   │   ├── feature_engineering_template.py  # 特徴量エンジニアリング
+│   │   └── model_comparison_template.py     # モデル比較
+│   ├── final_submission/   # 最終提出用ガイド
+│   └── templates/          # 再利用可能テンプレート
+│       └── submission_template.py   # Kaggle提出テンプレート
 ├── models/                  # モデル成果物
 │   ├── trained/            # 訓練済みモデル
 │   ├── checkpoints/        # モデルチェックポイント
-│   ├── kaggle_dataset/     # Kaggleデータセット用モデル
 │   └── submissions/        # 提出ファイル
-├── notebooks/              # Jupyterノートブック
+├── notebooks/              # Jupyterノートブック（ローカル開発用）
 │   ├── exploratory/       # EDAノートブック
 │   ├── modeling/          # モデル開発
 │   └── evaluation/        # モデル評価
@@ -34,13 +40,19 @@ neurips-open-polymer-prediction-2025/
 │   ├── figures/          # 生成された図表
 │   └── final/            # 最終レポート
 ├── scripts/              # ユーティリティスクリプト
+│   ├── baseline_model.py          # ベースラインモデル
+│   ├── prepare_kaggle_dataset.py  # Kaggle用モデル準備
+│   └── train_model.py            # モデル訓練
 ├── src/                  # ソースコード
 │   ├── data/            # データ処理
 │   ├── features/        # 特徴量エンジニアリング
 │   ├── models/          # モデル定義
 │   ├── utils/           # ユーティリティ関数
 │   └── visualization/   # プロット関数
-└── tests/               # ユニットテスト
+├── tests/               # ユニットテスト
+├── pyproject.toml       # UV依存関係管理
+├── uv.lock             # 依存関係ロックファイル
+└── Makefile            # 開発用コマンド
 ```
 
 ## はじめに
@@ -93,12 +105,18 @@ neurips-open-polymer-prediction-2025/
 
 ### 開発ワークフロー
 
-1. **探索的データ分析**: `notebooks/exploratory/` のノートブックから開始
-2. **特徴量エンジニアリング**: `src/features/` で特徴量を実装
-3. **モデル開発**: `src/models/` でモデルを作成
+#### ローカル開発フェーズ
+1. **探索的データ分析**: `kaggle_notebooks/development/eda_template.py` から開始
+2. **特徴量エンジニアリング**: `kaggle_notebooks/development/feature_engineering_template.py` で特徴量を実装
+3. **モデル比較**: `kaggle_notebooks/development/model_comparison_template.py` で複数モデルを評価
 4. **訓練**: `uv run scripts/train_model.py` または `make train` を使用
 5. **評価**: `notebooks/evaluation/` で結果を分析
-6. **提出**: `make submit` で提出ファイルを生成
+
+#### コードコンペ提出フェーズ
+1. **モデル準備**: `scripts/prepare_kaggle_dataset.py` で訓練済みモデルをパッケージ化
+2. **Kaggleデータセット作成**: 訓練済みモデルをKaggleにアップロード
+3. **最終ノートブック作成**: `kaggle_notebooks/templates/submission_template.py` をベースに作成
+4. **Kaggle提出**: ノートブックをKaggleで実行・提出
 
 ### 利用可能なコマンド
 
@@ -194,16 +212,25 @@ wandb.save("model.pth")
 
 ### 開発戦略
 1. **ローカル開発**: uvとvenv環境で迅速な実験
-2. **ノートブック移植**: 完成したコードをKaggleノートブックに移植
-3. **オフライン対応**: インターネット不要な実装
-4. **実行時間最適化**: 9時間制限内での効率的な処理
+2. **テンプレート活用**: `kaggle_notebooks/` の各種テンプレートを使用
+3. **モデル事前訓練**: ローカルで訓練したモデルをKaggleデータセットとしてアップロード
+4. **オフライン対応**: インターネット不要な実装
+5. **実行時間最適化**: 9時間制限内での効率的な処理
+
+### コードコンペ最適化機能
+- **submission_template.py**: Kaggleノートブック用の包括的テンプレート
+- **prepare_kaggle_dataset.py**: 訓練済みモデルのパッケージ化スクリプト
+- **development templates**: EDA、特徴量エンジニアリング、モデル比較用テンプレート
+- **メモリ最適化**: データ型最適化とメモリ使用量削減機能
+- **実行時間管理**: 関数実行時間計測とタイムアウト対策
 
 ## 注記
 
-- Kaggleノートブック用のオフライン対応コードを`notebooks/`に準備
+- Kaggleノートブック用のオフライン対応コードを`kaggle_notebooks/`に準備
 - 実行時間を考慮した効率的なモデル選択
 - 提出ファイル名は必ず`submission.csv`とすること
 - WandBなどのオンラインサービスはローカル開発時のみ使用
+- コードコンペ用テンプレートは実用的でそのまま使用可能
 
 ## ライセンス
 

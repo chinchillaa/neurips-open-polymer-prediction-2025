@@ -69,27 +69,34 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
+# Project specific - Data files
 data/raw/*.csv
 data/raw/*.zip
 data/interim/
 data/processed/
 *.log
+
+# Project specific - Model artifacts
 *.pkl
 *.joblib
 models/trained/
 models/checkpoints/
 models/submissions/*.csv
+
+# Project specific - Experiment tracking
 experiments/
 reports/figures/
 
-# Secrets
+# Secrets and API keys
 .env
 secrets.yaml
 kaggle.json
 
-# WandB
+# WandB (for local development only)
 wandb/
 
 # UV lock file (keep it for reproducibility)
 # uv.lock
+
+# Temporary kaggle upload directory
+kaggle_upload/
