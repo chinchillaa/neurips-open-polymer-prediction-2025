@@ -80,11 +80,11 @@ logging:
 
 # 結果保存設定
 output:
-  results_dir: "results"
-  models_dir: "results/models"
-  predictions_dir: "results/predictions"
-  logs_dir: "results/logs"
-  submission_file: "results/predictions/submission.csv"
+  results_dir: "experiments_results"
+  models_dir: "experiments_results/models"
+  predictions_dir: "experiments_results/predictions"
+  logs_dir: "experiments_results/logs"
+  submission_file: "experiments_results/predictions/submission.csv"
 
 # パフォーマンス設定
 performance:

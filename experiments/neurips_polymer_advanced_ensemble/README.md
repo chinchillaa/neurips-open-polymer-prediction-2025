@@ -19,14 +19,10 @@ experiments/neurips_polymer_advanced_ensemble/
 │   ├── wandb_test.py                   # WandBテスト
 │   └── model_test.py                   # モデル検証テスト
 ├── experiments_results/               # 実験結果
-│   └── advanced_ensemble_[タイムスタンプ]/  # 実行時に自動生成
-│       ├── metadata.json             # 実験メタデータ
-│       ├── config_used.yaml          # 使用した設定
-│       ├── models/                   # 訓練済みモデル
-│       ├── predictions/              # 予測結果
-│       │   └── submission.csv        # Kaggle提出用ファイル
-│       └── logs/                     # 詳細ログ
-├── results/                          # 旧形式の結果（移行中）
+│   ├── models/                       # 訓練済みモデル
+│   ├── predictions/                  # 予測結果
+│   │   └── submission.csv           # Kaggle提出用ファイル
+│   └── logs/                        # 詳細ログ
 └── wandb/                            # WandB実験ログ
     └── [WandB実験データ]
 ```
