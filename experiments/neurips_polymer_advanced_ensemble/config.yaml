@@ -1,0 +1,107 @@
+# NeurIPS Polymer Advanced Ensemble Experiment Configuration
+# ローカル実験設定ファイル
+
+experiment:
+  name: "neurips_polymer_advanced_ensemble"
+  description: "高度なアンサンブルモデルによるポリマー特性予測"
+  version: "v2.0"
+  corresponding_kaggle_notebook: "kaggle_notebooks/submission/neurips_polymer_advanced_ensemble/"
+
+# データパス設定
+data:
+  raw_data_dir: "../../data/raw"
+  processed_data_dir: "../../data/processed"
+  train_file: "train.csv"
+  test_file: "test.csv"
+  sample_submission_file: "sample_submission.csv"
+
+# モデル設定
+model:
+  ensemble_models:
+    - "xgboost"
+    - "catboost" 
+    - "random_forest"
+    - "gradient_boosting"
+    - "knn"
+  
+  cross_validation:
+    n_splits: 5
+    shuffle: true
+    random_state: 42
+
+  hyperparameters:
+    # XGBoost設定（特性別最適化済み）
+    xgboost:
+      Tg:
+        n_estimators: 1000
+        learning_rate: 0.01
+        max_depth: 6
+        subsample: 0.8
+        colsample_bytree: 0.8
+      FFV:
+        n_estimators: 2000
+        learning_rate: 0.005
+        max_depth: 8
+        subsample: 0.7
+        colsample_bytree: 0.7
+    
+    # CatBoost設定
+    catboost:
+      iterations: 1000
+      learning_rate: 0.03
+      depth: 6
+      l2_leaf_reg: 3
+      verbose: false
+
+# 特徴量設定
+features:
+  use_rdkit_descriptors: true
+  use_morgan_fingerprints: true
+  use_maccs_keys: true
+  use_custom_polymer_features: true
+  
+  rdkit:
+    descriptor_types: "all"
+  
+  fingerprints:
+    morgan_radius: 2
+    morgan_bits: 256
+    maccs_bits: 167
+
+# 実験管理設定
+logging:
+  use_wandb: true
+  wandb_project: "neurips-polymer-prediction-2025"
+  wandb_run_name: "advanced_ensemble_local"
+  
+  save_models: true
+  save_predictions: true
+  save_feature_importance: true
+
+# 結果保存設定
+output:
+  results_dir: "results"
+  models_dir: "results/models"
+  predictions_dir: "results/predictions"
+  logs_dir: "results/logs"
+  submission_file: "results/predictions/submission.csv"
+
+# パフォーマンス設定
+performance:
+  n_jobs: -1
+  memory_limit_gb: 16
+  max_execution_time_minutes: 480  # 8時間（Kaggle制限を考慮）
+
+# ターゲット特性設定
+targets:
+  - "Tg"
+  - "FFV" 
+  - "Tc"
+  - "Density"
+  - "Rg"
+
+# 重み付きMAE計算用設定
+evaluation:
+  metric: "weighted_mae"
+  calculate_individual_scores: true
+  save_cv_predictions: true

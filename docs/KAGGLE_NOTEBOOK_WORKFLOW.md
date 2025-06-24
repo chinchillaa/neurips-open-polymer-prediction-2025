@@ -6,7 +6,7 @@ NeurIPS Open Polymer Prediction 2025コンペティション用のKaggleノー�
 
 ## 開発ワークフロー選択肢
 
-### 🔄 自動化ワークフロー（推奨）
+### 🔄 自動化ワークフロー
 ```
 Python コード → .ipynb 自動生成 → Kaggle API アップロード → Kaggle実行・提出
 ```
