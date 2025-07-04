@@ -33,19 +33,19 @@ from catboost import CatBoostRegressor, Pool
 warnings.filterwarnings('ignore')
 
 # プロジェクトルートの設定
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent  # 4つ上がプロジェクトルート
 DATA_DIR = PROJECT_ROOT / "data" / "raw"
-EXPERIMENTS_DIR = PROJECT_ROOT / "experiments" / "polymer_prediction_baseline"
-MODELS_DIR = PROJECT_ROOT / "models" / "trained"
+EXPERIMENTS_DIR = Path(__file__).parent.parent  # neurips_polymer_advanced_ensemble ディレクトリ
+MODELS_DIR = EXPERIMENTS_DIR / "experiments_results" / "models"
 
 # ディレクトリ作成
 EXPERIMENTS_DIR.mkdir(parents=True, exist_ok=True)
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # 実験管理設定
-EXPERIMENT_NAME = f"polymer_prediction_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+EXPERIMENT_NAME = f"advanced_ensemble_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 EXPERIMENT_DIR = EXPERIMENTS_DIR / "experiments_results" / EXPERIMENT_NAME
-EXPERIMENT_DIR.mkdir(exist_ok=True)
+EXPERIMENT_DIR.mkdir(parents=True, exist_ok=True)
 
 print(f"🚀 実験開始: {EXPERIMENT_NAME}")
 print(f"📁 実験ディレクトリ: {EXPERIMENT_DIR}")
@@ -85,7 +85,33 @@ def init_wandb(offline_mode=False):
                 "rdkit_available": rdkit_available,
                 "model_types": ["xgboost", "catboost", "random_forest", "gradient_boosting", "knn"],
                 "cv_folds": 5,
-                "max_features": 500
+                "max_features": 500,
+                "hyperparameters": {
+                    "xgboost": {
+                        "n_estimators": 200,
+                        "max_depth": 8,
+                        "learning_rate": 0.05,
+                        "subsample": 0.8,
+                        "colsample_bytree": 0.8
+                    },
+                    "catboost": {
+                        "iterations": 200,
+                        "depth": 7,
+                        "learning_rate": 0.08
+                    },
+                    "random_forest": {
+                        "n_estimators": 300,
+                        "max_depth": 15
+                    },
+                    "gradient_boosting": {
+                        "n_estimators": 200,
+                        "max_depth": 8,
+                        "learning_rate": 0.1
+                    },
+                    "knn": {
+                        "n_neighbors": 10
+                    }
+                }
             }
         )
         print(f"✅ WandB初期化成功（{mode}モード）")
@@ -98,9 +124,14 @@ def init_wandb(offline_mode=False):
 def load_local_data():
     """ローカルデータの読み込み"""
     print("📂 ローカルデータ読み込み中...")
+    print(f"📁 データディレクトリ: {DATA_DIR}")
     train_path = DATA_DIR / "train.csv"
     test_path = DATA_DIR / "test.csv"
     sample_submission_path = DATA_DIR / "sample_submission.csv"
+    
+    print(f"🔍 訓練データ存在確認: {train_path} -> {train_path.exists()}")
+    print(f"🔍 テストデータ存在確認: {test_path} -> {test_path.exists()}")
+    print(f"🔍 サンプル提出存在確認: {sample_submission_path} -> {sample_submission_path.exists()}")
     
     if not all([train_path.exists(), test_path.exists(), sample_submission_path.exists()]):
         raise FileNotFoundError("必要なデータファイルが見つかりません")
@@ -199,6 +230,70 @@ def rdkit_molecular_features(smiles):
     
     return features[:100]  # 100個の特徴量に制限
 
+def calculate_weighted_mae(y_true_df, y_pred_df, target_columns, train_df):
+    """
+    Calculate weighted MAE (wMAE) score according to the competition formula
+
+    Formula: wMAE = Σ(w_i × MAE_i)
+    where w_i = (1/r_i) × (K × √(1/n_i)) / Σ(√(1/n_j))
+
+    Args:
+        y_true_df: DataFrame with true values
+        y_pred_df: DataFrame with predicted values  
+        target_columns: List of target column names
+        train_df: Training DataFrame to calculate ranges and sample counts
+
+    Returns:
+        wMAE score and individual weights
+    """
+    # Calculate sample counts and ranges from training data
+    K = len(target_columns)  # Total number of tasks
+    sample_counts = {}
+    value_ranges = {}
+
+    for target in target_columns:
+        if target in train_df.columns:
+            valid_data = train_df[target].dropna()
+            sample_counts[target] = len(valid_data)
+            value_ranges[target] = valid_data.max() - valid_data.min()
+        else:
+            sample_counts[target] = 1  # Default if not available
+            value_ranges[target] = 1.0  # Default if not available
+
+    # Calculate sqrt(1/n_i) for each target
+    sqrt_inv_n = {}
+    for target in target_columns:
+        sqrt_inv_n[target] = np.sqrt(1.0 / sample_counts[target])
+
+    # Calculate sum of sqrt(1/n_j) for all j
+    sum_sqrt_inv_n = sum(sqrt_inv_n.values())
+
+    # Calculate weights w_i = (1/r_i) × (K × √(1/n_i)) / Σ(√(1/n_j))
+    weights = {}
+    for target in target_columns:
+        weights[target] = (1.0 / value_ranges[target]) * (K * sqrt_inv_n[target]) / sum_sqrt_inv_n
+
+    # Calculate MAE for each target and weighted sum
+    individual_maes = {}
+    weighted_sum = 0.0
+
+    for target in target_columns:
+        if target in y_true_df.columns and target in y_pred_df.columns:
+            # Get valid (non-null) predictions and true values
+            valid_mask = y_true_df[target].notna() & y_pred_df[target].notna()
+            if valid_mask.sum() > 0:
+                y_true_valid = y_true_df[target][valid_mask]
+                y_pred_valid = y_pred_df[target][valid_mask]
+                mae = mean_absolute_error(y_true_valid, y_pred_valid)
+                individual_maes[target] = mae
+                weighted_sum += weights[target] * mae
+            else:
+                individual_maes[target] = 0.0
+        else:
+            individual_maes[target] = 0.0
+
+    return weighted_sum, weights, individual_maes, sample_counts, value_ranges
+
 def feature_engineering(df, wandb_available=False):
     """特徴量エンジニアリング"""
     print("🧬 分子特徴量生成中...")
@@ -245,24 +340,24 @@ def train_models_for_target(X, y, target_name, wandb_available=False, n_splits=5
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=SEED)
     models_performance = {}
     
-    # モデル定義
+    # モデル定義（ハイパーパラメータ調整版）
     models = {
         'XGBoost': xgb.XGBRegressor(
-            n_estimators=100, max_depth=6, learning_rate=0.1,
+            n_estimators=200, max_depth=8, learning_rate=0.05,
             subsample=0.8, colsample_bytree=0.8, random_state=SEED, n_jobs=-1
         ),
         'CatBoost': CatBoostRegressor(
-            iterations=100, depth=6, learning_rate=0.1,
+            iterations=200, depth=7, learning_rate=0.08,
             random_seed=SEED, verbose=False,
             train_dir=str(EXPERIMENT_DIR / "catboost_info")
         ),
         'RandomForest': RandomForestRegressor(
-            n_estimators=100, max_depth=10, random_state=SEED, n_jobs=-1
+            n_estimators=300, max_depth=15, random_state=SEED, n_jobs=-1
         ),
         'GradientBoosting': GradientBoostingRegressor(
-            n_estimators=100, max_depth=6, learning_rate=0.1, random_state=SEED
+            n_estimators=200, max_depth=8, learning_rate=0.1, random_state=SEED
         ),
-        'KNN': KNeighborsRegressor(n_neighbors=5, n_jobs=-1)
+        'KNN': KNeighborsRegressor(n_neighbors=10, n_jobs=-1)
     }
     
     cv_results = {}
@@ -353,9 +448,10 @@ def main_experiment(offline_wandb=True):
     
     # 各特性に対してモデル訓練（サンプル実行のため制限）
     results = {}
-    sample_targets = target_columns[:2]  # 最初の2つの特性のみテスト
+    # すべての特性を処理（idを除く）
+    actual_targets = [col for col in target_columns if col != 'id']
     
-    for target_col in sample_targets:
+    for target_col in actual_targets:
         if target_col in train.columns:
             # 欠損値除去
             valid_mask = ~train[target_col].isna()
@@ -382,7 +478,33 @@ def main_experiment(offline_wandb=True):
         "timestamp": datetime.now().isoformat(),
         "rdkit_available": rdkit_available,
         "elapsed_time": elapsed_time,
-        "results": results
+        "results": results,
+        "hyperparameters": {
+            "xgboost": {
+                "n_estimators": 200,
+                "max_depth": 8,
+                "learning_rate": 0.05,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8
+            },
+            "catboost": {
+                "iterations": 200,
+                "depth": 7,
+                "learning_rate": 0.08
+            },
+            "random_forest": {
+                "n_estimators": 300,
+                "max_depth": 15
+            },
+            "gradient_boosting": {
+                "n_estimators": 200,
+                "max_depth": 8,
+                "learning_rate": 0.1
+            },
+            "knn": {
+                "n_neighbors": 10
+            }
+        }
     }
     
     metadata_path = EXPERIMENT_DIR / "metadata.json"
@@ -394,6 +516,56 @@ def main_experiment(offline_wandb=True):
         print(f"  {target}:")
         for model, performance in target_results.items():
             print(f"    {model}: {performance['cv_mae']:.6f} (±{performance['cv_std']:.6f})")
+    
+    # wMAE計算のための準備
+    print(f"\n📊 wMAE（重み付き平均絶対誤差）計算:")
+    
+    # 各モデルの予測値を格納するDataFrame（CVのMAEを使った推定）
+    model_names = list(next(iter(results.values())).keys())
+    
+    for model_name in model_names:
+        print(f"\n  {model_name}モデルのwMAE計算:")
+        
+        # CVのMAEを使って疑似的なDataFrameを作成
+        y_true_dict = {}
+        y_pred_dict = {}
+        
+        for target in actual_targets:
+            if target in results and model_name in results[target]:
+                # CVのMAEを持つダミーデータを作成（実際の予測ではなく推定）
+                cv_mae = results[target][model_name]['cv_mae']
+                y_true_dict[target] = [0.0]  # ダミー値
+                y_pred_dict[target] = [cv_mae]  # MAEを予測誤差として使用
+        
+        y_true_df = pd.DataFrame(y_true_dict)
+        y_pred_df = pd.DataFrame(y_pred_dict)
+        
+        # wMAE計算
+        try:
+            wmae, weights, individual_maes, sample_counts, value_ranges = calculate_weighted_mae(
+                y_true_df, y_pred_df, actual_targets, train
+            )
+            
+            print(f"    重み:")
+            for target in actual_targets:
+                if target in weights:
+                    print(f"      {target}: {weights[target]:.4f}")
+            
+            print(f"    個別MAE:")
+            for target in actual_targets:
+                if target in individual_maes:
+                    print(f"      {target}: {individual_maes[target]:.4f}")
+            
+            print(f"    推定wMAE: {wmae:.4f}")
+            
+            if wandb_available:
+                wandb.log({
+                    f"wmae/{model_name}/estimated_wmae": wmae,
+                    f"wmae/{model_name}/weights": weights,
+                    f"wmae/{model_name}/individual_maes": individual_maes
+                })
+        except Exception as e:
+            print(f"    wMAE計算エラー: {e}")
     
     if wandb_available:
         # 総合指標をWandBに記録
