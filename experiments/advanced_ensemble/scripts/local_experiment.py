@@ -11,6 +11,7 @@ import os
 import sys
 import time
 import json
+import yaml
 import warnings
 import numpy as np
 import pandas as pd
@@ -70,10 +71,90 @@ except ImportError:
     rdkit_available = False
     print("⚠️  RDKit利用不可 - 基本SMILES特徴量を使用")
 
-def init_wandb(offline_mode=False):
+def load_config():
+    """config.yamlから設定を読み込み"""
+    config_path = EXPERIMENTS_DIR / "config.yaml"
+    if config_path.exists():
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        print(f"✅ 設定ファイル読み込み完了: {config_path}")
+        return config
+    else:
+        print(f"⚠️  設定ファイルが見つかりません: {config_path}")
+        print("   デフォルト設定を使用します")
+        return get_default_config()
+
+def get_default_config():
+    """デフォルト設定を返す"""
+    return {
+        "experiment": {
+            "name": "advanced_ensemble",
+            "version": "v2.0"
+        },
+        "model": {
+            "cross_validation": {
+                "n_splits": 5,
+                "shuffle": True,
+                "random_state": 42
+            },
+            "hyperparameters": {
+                "xgboost": {
+                    "default": {
+                        "n_estimators": 200,
+                        "max_depth": 8,
+                        "learning_rate": 0.05,
+                        "subsample": 0.8,
+                        "colsample_bytree": 0.8
+                    }
+                },
+                "catboost": {
+                    "iterations": 200,
+                    "depth": 7,
+                    "learning_rate": 0.08,
+                    "l2_leaf_reg": 3,
+                    "verbose": False
+                },
+                "random_forest": {
+                    "n_estimators": 300,
+                    "max_depth": 15
+                },
+                "gradient_boosting": {
+                    "n_estimators": 200,
+                    "max_depth": 8,
+                    "learning_rate": 0.1
+                },
+                "knn": {
+                    "n_neighbors": 10
+                }
+            }
+        }
+    }
+
+def get_model_hyperparameters(config, model_name, target_name=None):
+    """モデルのハイパーパラメータを取得（特性別対応）"""
+    hp_config = config.get("model", {}).get("hyperparameters", {}).get(model_name.lower(), {})
+    
+    # XGBoostの場合、特性別設定を確認
+    if model_name.lower() == "xgboost" and target_name and target_name in hp_config:
+        return hp_config[target_name]
+    elif model_name.lower() == "xgboost" and "default" in hp_config:
+        return hp_config["default"]
+    else:
+        return hp_config
+
+def init_wandb(offline_mode=False, config=None):
     """WandB初期化"""
     try:
         mode = "offline" if offline_mode else "online"
+        
+        # configから設定を取得
+        if config:
+            cv_folds = config.get("model", {}).get("cross_validation", {}).get("n_splits", 5)
+            hyperparameters = config.get("model", {}).get("hyperparameters", {})
+        else:
+            cv_folds = 5
+            hyperparameters = get_default_config()["model"]["hyperparameters"]
+        
         run = wandb.init(
             project=WANDB_PROJECT,
             entity=WANDB_ENTITY,
@@ -84,34 +165,10 @@ def init_wandb(offline_mode=False):
                 "seed": SEED,
                 "rdkit_available": rdkit_available,
                 "model_types": ["xgboost", "catboost", "random_forest", "gradient_boosting", "knn"],
-                "cv_folds": 5,
+                "cv_folds": cv_folds,
                 "max_features": 500,
-                "hyperparameters": {
-                    "xgboost": {
-                        "n_estimators": 200,
-                        "max_depth": 8,
-                        "learning_rate": 0.05,
-                        "subsample": 0.8,
-                        "colsample_bytree": 0.8
-                    },
-                    "catboost": {
-                        "iterations": 200,
-                        "depth": 7,
-                        "learning_rate": 0.08
-                    },
-                    "random_forest": {
-                        "n_estimators": 300,
-                        "max_depth": 15
-                    },
-                    "gradient_boosting": {
-                        "n_estimators": 200,
-                        "max_depth": 8,
-                        "learning_rate": 0.1
-                    },
-                    "knn": {
-                        "n_neighbors": 10
-                    }
-                }
+                "hyperparameters": hyperparameters,
+                "config_source": "config.yaml" if config else "default"
             }
         )
         print(f"✅ WandB初期化成功（{mode}モード）")
@@ -333,31 +390,54 @@ def feature_engineering(df, wandb_available=False):
     print(f"✅ 特徴量生成完了: {features_df.shape[1]}個の特徴量")
     return features_df
 
-def train_models_for_target(X, y, target_name, wandb_available=False, n_splits=5):
+def train_models_for_target(X, y, target_name, config, wandb_available=False, n_splits=5):
     """特定の特性に対するモデル訓練とアンサンブル"""
     print(f"🤖 {target_name}用の高度なモデル訓練中...")
     
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=SEED)
-    models_performance = {}
     
-    # モデル定義（ハイパーパラメータ調整版）
+    # configからハイパーパラメータを取得してモデル定義
+    xgb_params = get_model_hyperparameters(config, "xgboost", target_name)
+    catboost_params = get_model_hyperparameters(config, "catboost")
+    rf_params = get_model_hyperparameters(config, "random_forest")
+    gb_params = get_model_hyperparameters(config, "gradient_boosting")
+    knn_params = get_model_hyperparameters(config, "knn")
+    
     models = {
         'XGBoost': xgb.XGBRegressor(
-            n_estimators=200, max_depth=8, learning_rate=0.05,
-            subsample=0.8, colsample_bytree=0.8, random_state=SEED, n_jobs=-1
+            n_estimators=xgb_params.get("n_estimators", 200),
+            max_depth=xgb_params.get("max_depth", 8),
+            learning_rate=xgb_params.get("learning_rate", 0.05),
+            subsample=xgb_params.get("subsample", 0.8),
+            colsample_bytree=xgb_params.get("colsample_bytree", 0.8),
+            random_state=SEED,
+            n_jobs=-1
         ),
         'CatBoost': CatBoostRegressor(
-            iterations=200, depth=7, learning_rate=0.08,
-            random_seed=SEED, verbose=False,
+            iterations=catboost_params.get("iterations", 200),
+            depth=catboost_params.get("depth", 7),
+            learning_rate=catboost_params.get("learning_rate", 0.08),
+            l2_leaf_reg=catboost_params.get("l2_leaf_reg", 3),
+            random_seed=SEED,
+            verbose=catboost_params.get("verbose", False),
             train_dir=str(EXPERIMENT_DIR / "catboost_info")
         ),
         'RandomForest': RandomForestRegressor(
-            n_estimators=300, max_depth=15, random_state=SEED, n_jobs=-1
+            n_estimators=rf_params.get("n_estimators", 300),
+            max_depth=rf_params.get("max_depth", 15),
+            random_state=SEED,
+            n_jobs=-1
         ),
         'GradientBoosting': GradientBoostingRegressor(
-            n_estimators=200, max_depth=8, learning_rate=0.1, random_state=SEED
+            n_estimators=gb_params.get("n_estimators", 200),
+            max_depth=gb_params.get("max_depth", 8),
+            learning_rate=gb_params.get("learning_rate", 0.1),
+            random_state=SEED
         ),
-        'KNN': KNeighborsRegressor(n_neighbors=10, n_jobs=-1)
+        'KNN': KNeighborsRegressor(
+            n_neighbors=knn_params.get("n_neighbors", 10),
+            n_jobs=-1
+        )
     }
     
     cv_results = {}
@@ -526,8 +606,11 @@ def main_experiment(offline_wandb=True):
     """メイン実験関数"""
     start_time = time.time()
     
+    # 設定読み込み
+    config = load_config()
+    
     # WandB初期化
-    wandb_available, wandb_run = init_wandb(offline_mode=offline_wandb)
+    wandb_available, wandb_run = init_wandb(offline_mode=offline_wandb, config=config)
     
     # データ読み込み
     train, test, submission = load_local_data()
@@ -570,8 +653,13 @@ def main_experiment(offline_wandb=True):
             print(f"\n📊 {target_col} - 有効データ: {len(X_valid)}件")
             
             # モデル訓練とアンサンブル
+            # configからクロスバリデーションの設定を取得
+            cv_n_splits = config.get("model", {}).get("cross_validation", {}).get("n_splits", 5)
+            # 高速化のため3-foldに制限（必要に応じて変更）
+            cv_n_splits = min(cv_n_splits, 3)
+            
             cv_results, trained_models, scaler, ensemble_weights = train_models_for_target(
-                X_valid, y_valid, target_col, wandb_available, n_splits=3  # 高速化のため3-fold
+                X_valid, y_valid, target_col, config, wandb_available, n_splits=cv_n_splits
             )
             results[target_col] = {
                 'cv_results': cv_results,
@@ -610,32 +698,8 @@ def main_experiment(offline_wandb=True):
                 "weighted_ensemble_weights": data['ensemble_weights']
             } for target, data in results.items()
         },
-        "hyperparameters": {
-            "xgboost": {
-                "n_estimators": 200,
-                "max_depth": 8,
-                "learning_rate": 0.05,
-                "subsample": 0.8,
-                "colsample_bytree": 0.8
-            },
-            "catboost": {
-                "iterations": 200,
-                "depth": 7,
-                "learning_rate": 0.08
-            },
-            "random_forest": {
-                "n_estimators": 300,
-                "max_depth": 15
-            },
-            "gradient_boosting": {
-                "n_estimators": 200,
-                "max_depth": 8,
-                "learning_rate": 0.1
-            },
-            "knn": {
-                "n_neighbors": 10
-            }
-        }
+        "hyperparameters": config.get("model", {}).get("hyperparameters", {}),
+        "config_source": "config.yaml" if config else "default"
     }
     
     metadata_path = EXPERIMENT_DIR / "metadata.json"
