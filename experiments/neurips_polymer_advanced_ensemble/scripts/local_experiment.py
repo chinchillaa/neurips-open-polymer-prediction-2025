@@ -334,7 +334,7 @@ def feature_engineering(df, wandb_available=False):
     return features_df
 
 def train_models_for_target(X, y, target_name, wandb_available=False, n_splits=5):
-    """特定の特性に対するモデル訓練"""
+    """特定の特性に対するモデル訓練とアンサンブル"""
     print(f"🤖 {target_name}用の高度なモデル訓練中...")
     
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=SEED)
@@ -361,35 +361,46 @@ def train_models_for_target(X, y, target_name, wandb_available=False, n_splits=5
     }
     
     cv_results = {}
+    fold_predictions = {model_name: [] for model_name in models.keys()}
+    fold_true_values = []
     
-    for model_name, model in models.items():
-        print(f"  {model_name}モデル訓練中...")
-        cv_scores = []
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
+        X_train_fold = X.iloc[train_idx]
+        X_val_fold = X.iloc[val_idx]
+        y_train_fold = y.iloc[train_idx]
+        y_val_fold = y.iloc[val_idx]
         
-        for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
-            X_train_fold = X.iloc[train_idx]
-            X_val_fold = X.iloc[val_idx]
-            y_train_fold = y.iloc[train_idx]
-            y_val_fold = y.iloc[val_idx]
-            
-            # データ前処理
-            scaler = StandardScaler()
-            X_train_scaled = pd.DataFrame(
-                scaler.fit_transform(X_train_fold), 
-                columns=X_train_fold.columns, 
-                index=X_train_fold.index
-            )
-            X_val_scaled = pd.DataFrame(
-                scaler.transform(X_val_fold), 
-                columns=X_val_fold.columns, 
-                index=X_val_fold.index
-            )
-            
+        # データ前処理
+        scaler = StandardScaler()
+        X_train_scaled = pd.DataFrame(
+            scaler.fit_transform(X_train_fold), 
+            columns=X_train_fold.columns, 
+            index=X_train_fold.index
+        )
+        X_val_scaled = pd.DataFrame(
+            scaler.transform(X_val_fold), 
+            columns=X_val_fold.columns, 
+            index=X_val_fold.index
+        )
+        
+        fold_true_values.append(y_val_fold)
+        
+        for model_name, model in models.items():
             # モデル訓練
             model.fit(X_train_scaled, y_train_fold)
             y_pred = model.predict(X_val_scaled)
+            fold_predictions[model_name].append(y_pred)
+            
             mae = mean_absolute_error(y_val_fold, y_pred)
-            cv_scores.append(mae)
+            
+            if model_name not in cv_results:
+                cv_results[model_name] = {
+                    'cv_scores': [],
+                    'predictions': []
+                }
+            
+            cv_results[model_name]['cv_scores'].append(mae)
+            cv_results[model_name]['predictions'].append(y_pred)
             
             print(f"    フォールド {fold+1} {model_name} MAE: {mae:.6f}")
             
@@ -398,14 +409,14 @@ def train_models_for_target(X, y, target_name, wandb_available=False, n_splits=5
                     f"{target_name}/{model_name}/fold_{fold+1}_mae": mae,
                     f"{target_name}/{model_name}/fold": fold+1
                 })
-        
-        avg_mae = np.mean(cv_scores)
-        std_mae = np.std(cv_scores)
-        cv_results[model_name] = {
-            'cv_mae': avg_mae,
-            'cv_std': std_mae,
-            'cv_scores': cv_scores
-        }
+    
+    # 各モデルの平均性能を計算
+    for model_name in models.keys():
+        avg_mae = np.mean(cv_results[model_name]['cv_scores'])
+        std_mae = np.std(cv_results[model_name]['cv_scores'])
+        cv_results[model_name]['cv_mae'] = float(avg_mae)
+        cv_results[model_name]['cv_std'] = float(std_mae)
+        cv_results[model_name]['cv_scores'] = [float(score) for score in cv_results[model_name]['cv_scores']]
         
         print(f"    {model_name} 平均 CV MAE: {avg_mae:.6f} (±{std_mae:.6f})")
         
@@ -415,7 +426,101 @@ def train_models_for_target(X, y, target_name, wandb_available=False, n_splits=5
                 f"{target_name}/{model_name}/cv_std": std_mae
             })
     
-    return cv_results
+    # アンサンブル予測の計算
+    print(f"\n  🎯 {target_name}のアンサンブル予測を計算中...")
+    
+    # 1. 単純平均アンサンブル
+    ensemble_predictions_simple = []
+    for fold in range(n_splits):
+        fold_ensemble = np.mean([fold_predictions[model][fold] for model in models.keys()], axis=0)
+        ensemble_predictions_simple.append(fold_ensemble)
+    
+    # 単純平均アンサンブルのMAE計算
+    simple_ensemble_maes = []
+    for fold in range(n_splits):
+        mae = mean_absolute_error(fold_true_values[fold], ensemble_predictions_simple[fold])
+        simple_ensemble_maes.append(mae)
+    
+    simple_ensemble_avg_mae = np.mean(simple_ensemble_maes)
+    simple_ensemble_std_mae = np.std(simple_ensemble_maes)
+    
+    print(f"    単純平均アンサンブル MAE: {simple_ensemble_avg_mae:.6f} (±{simple_ensemble_std_mae:.6f})")
+    
+    # 2. 加重平均アンサンブル（性能ベースの重み）
+    # 各モデルの重みを性能（MAE）の逆数に基づいて計算
+    model_weights = {}
+    total_inv_mae = sum(1.0 / cv_results[model]['cv_mae'] for model in models.keys())
+    for model in models.keys():
+        model_weights[model] = (1.0 / cv_results[model]['cv_mae']) / total_inv_mae
+    
+    print(f"\n  📊 最適化された重み:")
+    for model, weight in model_weights.items():
+        print(f"    {model}: {weight:.4f}")
+    
+    # 加重平均アンサンブル予測
+    ensemble_predictions_weighted = []
+    for fold in range(n_splits):
+        fold_ensemble = sum(
+            fold_predictions[model][fold] * model_weights[model] 
+            for model in models.keys()
+        )
+        ensemble_predictions_weighted.append(fold_ensemble)
+    
+    # 加重平均アンサンブルのMAE計算
+    weighted_ensemble_maes = []
+    for fold in range(n_splits):
+        mae = mean_absolute_error(fold_true_values[fold], ensemble_predictions_weighted[fold])
+        weighted_ensemble_maes.append(mae)
+    
+    weighted_ensemble_avg_mae = np.mean(weighted_ensemble_maes)
+    weighted_ensemble_std_mae = np.std(weighted_ensemble_maes)
+    
+    print(f"    加重平均アンサンブル MAE: {weighted_ensemble_avg_mae:.6f} (±{weighted_ensemble_std_mae:.6f})")
+    
+    # アンサンブル結果をcv_resultsに追加
+    cv_results['SimpleEnsemble'] = {
+        'cv_mae': float(simple_ensemble_avg_mae),
+        'cv_std': float(simple_ensemble_std_mae),
+        'cv_scores': [float(score) for score in simple_ensemble_maes]
+    }
+    
+    cv_results['WeightedEnsemble'] = {
+        'cv_mae': float(weighted_ensemble_avg_mae),
+        'cv_std': float(weighted_ensemble_std_mae),
+        'cv_scores': [float(score) for score in weighted_ensemble_maes],
+        'weights': {model: float(weight) for model, weight in model_weights.items()}
+    }
+    
+    if wandb_available:
+        wandb.log({
+            f"{target_name}/SimpleEnsemble/cv_mae": simple_ensemble_avg_mae,
+            f"{target_name}/SimpleEnsemble/cv_std": simple_ensemble_std_mae,
+            f"{target_name}/WeightedEnsemble/cv_mae": weighted_ensemble_avg_mae,
+            f"{target_name}/WeightedEnsemble/cv_std": weighted_ensemble_std_mae,
+            f"{target_name}/WeightedEnsemble/weights": model_weights
+        })
+    
+    # 最良のモデルを選択（個別モデルとアンサンブルを含む）
+    all_models = list(cv_results.keys())
+    best_model = min(all_models, key=lambda m: cv_results[m]['cv_mae'])
+    print(f"\n  🏆 {target_name}の最良モデル: {best_model} (MAE: {cv_results[best_model]['cv_mae']:.6f})")
+    
+    # 全データで最終モデルを訓練
+    print(f"\n  💾 {target_name}の最終モデルを訓練中...")
+    scaler = StandardScaler()
+    X_scaled = pd.DataFrame(
+        scaler.fit_transform(X), 
+        columns=X.columns, 
+        index=X.index
+    )
+    
+    trained_models = {}
+    for model_name, model in models.items():
+        model.fit(X_scaled, y)
+        trained_models[model_name] = model
+    
+    # スケーラーと訓練済みモデルを返す
+    return cv_results, trained_models, scaler, model_weights
 
 def main_experiment(offline_wandb=True):
     """メイン実験関数"""
@@ -464,11 +569,16 @@ def main_experiment(offline_wandb=True):
             
             print(f"\n📊 {target_col} - 有効データ: {len(X_valid)}件")
             
-            # モデル訓練
-            cv_results = train_models_for_target(
+            # モデル訓練とアンサンブル
+            cv_results, trained_models, scaler, ensemble_weights = train_models_for_target(
                 X_valid, y_valid, target_col, wandb_available, n_splits=3  # 高速化のため3-fold
             )
-            results[target_col] = cv_results
+            results[target_col] = {
+                'cv_results': cv_results,
+                'trained_models': trained_models,
+                'scaler': scaler,
+                'ensemble_weights': ensemble_weights
+            }
     
     # 実験結果保存
     elapsed_time = time.time() - start_time
@@ -478,7 +588,28 @@ def main_experiment(offline_wandb=True):
         "timestamp": datetime.now().isoformat(),
         "rdkit_available": rdkit_available,
         "elapsed_time": elapsed_time,
-        "results": results,
+        "results": {
+            target: {
+                model: {
+                    'cv_mae': data['cv_results'][model]['cv_mae'],
+                    'cv_std': data['cv_results'][model]['cv_std'],
+                    'cv_scores': data['cv_results'][model]['cv_scores']
+                } if model not in ['WeightedEnsemble'] else {
+                    'cv_mae': data['cv_results'][model]['cv_mae'],
+                    'cv_std': data['cv_results'][model]['cv_std'],
+                    'cv_scores': data['cv_results'][model]['cv_scores'],
+                    'weights': data['cv_results'][model]['weights']
+                }
+                for model in data['cv_results'] if 'predictions' not in data['cv_results'][model]
+            }
+            for target, data in results.items()
+        },
+        "ensemble_info": {
+            target: {
+                "best_model": min(data['cv_results'].keys(), key=lambda m: data['cv_results'][m]['cv_mae']),
+                "weighted_ensemble_weights": data['ensemble_weights']
+            } for target, data in results.items()
+        },
         "hyperparameters": {
             "xgboost": {
                 "n_estimators": 200,
@@ -512,16 +643,21 @@ def main_experiment(offline_wandb=True):
         json.dump(experiment_metadata, f, indent=2, ensure_ascii=False)
     
     print(f"\n📊 実験結果サマリー:")
-    for target, target_results in results.items():
+    for target, target_data in results.items():
         print(f"  {target}:")
-        for model, performance in target_results.items():
-            print(f"    {model}: {performance['cv_mae']:.6f} (±{performance['cv_std']:.6f})")
+        for model, performance in target_data['cv_results'].items():
+            if model == 'WeightedEnsemble' and 'weights' in performance:
+                print(f"    {model}: {performance['cv_mae']:.6f} (±{performance['cv_std']:.6f})")
+                print(f"      重み: {performance['weights']}")
+            else:
+                print(f"    {model}: {performance['cv_mae']:.6f} (±{performance['cv_std']:.6f})")
     
     # wMAE計算のための準備
     print(f"\n📊 wMAE（重み付き平均絶対誤差）計算:")
     
     # 各モデルの予測値を格納するDataFrame（CVのMAEを使った推定）
-    model_names = list(next(iter(results.values())).keys())
+    # アンサンブルを含むすべてのモデル名を取得
+    model_names = list(next(iter(results.values()))['cv_results'].keys())
     
     for model_name in model_names:
         print(f"\n  {model_name}モデルのwMAE計算:")
@@ -531,9 +667,9 @@ def main_experiment(offline_wandb=True):
         y_pred_dict = {}
         
         for target in actual_targets:
-            if target in results and model_name in results[target]:
+            if target in results and model_name in results[target]['cv_results']:
                 # CVのMAEを持つダミーデータを作成（実際の予測ではなく推定）
-                cv_mae = results[target][model_name]['cv_mae']
+                cv_mae = results[target]['cv_results'][model_name]['cv_mae']
                 y_true_dict[target] = [0.0]  # ダミー値
                 y_pred_dict[target] = [cv_mae]  # MAEを予測誤差として使用
         
@@ -570,8 +706,8 @@ def main_experiment(offline_wandb=True):
     if wandb_available:
         # 総合指標をWandBに記録
         avg_performance = {}
-        for target, target_results in results.items():
-            for model, performance in target_results.items():
+        for target, target_data in results.items():
+            for model, performance in target_data['cv_results'].items():
                 if model not in avg_performance:
                     avg_performance[model] = []
                 avg_performance[model].append(performance['cv_mae'])

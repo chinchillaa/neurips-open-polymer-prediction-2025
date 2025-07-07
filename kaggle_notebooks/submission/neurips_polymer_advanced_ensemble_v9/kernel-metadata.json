@@ -1,0 +1,14 @@
+{
+  "id": "tgwstr/neurips-polymer-advanced-ensemble-v9",
+  "title": "NeurIPS Polymer Advanced Ensemble v9",
+  "code_file": "neurips-polymer-advanced-ensemble-v9.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": false,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "dataset_sources": ["richolson/rdkit-install-whl"],
+  "competition_sources": ["neurips-open-polymer-prediction-2025"],
+  "kernel_sources": []
+}

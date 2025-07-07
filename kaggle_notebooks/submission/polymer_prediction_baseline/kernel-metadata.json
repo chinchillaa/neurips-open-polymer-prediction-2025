@@ -1,0 +1,13 @@
+{
+  "id": "tgwstr/polymer-prediction-baseline",
+  "title": "Polymer Prediction Baseline",
+  "code_file": "polymer_prediction_baseline.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": false,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "dataset_sources": [],
+  "competition_sources": ["neurips-open-polymer-prediction-2025"],
+  "kernel_sources": []
+}

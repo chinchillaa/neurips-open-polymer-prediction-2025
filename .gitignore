@@ -112,5 +112,5 @@ tmp/
 # 中間成果物とバックアップ
 work_backup/
 
-# 提出用Kaggleノートブック
-kaggle_notebooks/submission/
+# 提出用Kaggleノートブック（アーカイブのみ除外）
+kaggle_notebooks/submission/archive/
