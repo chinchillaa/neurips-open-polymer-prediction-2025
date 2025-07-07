@@ -35,8 +35,8 @@ model:
       Tg:
         n_estimators: 1000
         learning_rate: 0.01
-        max_depth: 6
-        subsample: 0.8
+        max_depth: 7
+        subsample: 0.9
         colsample_bytree: 0.8
       FFV:
         n_estimators: 2000
