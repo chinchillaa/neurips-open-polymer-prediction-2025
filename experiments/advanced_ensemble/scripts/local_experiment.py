@@ -35,8 +35,8 @@ warnings.filterwarnings('ignore')
 # プロジェクトルートの設定
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent  # 4つ上がプロジェクトルート
 DATA_DIR = PROJECT_ROOT / "data" / "raw"
-EXPERIMENTS_DIR = Path(__file__).parent.parent  # neurips_polymer_advanced_ensemble ディレクトリ
-MODELS_DIR = EXPERIMENTS_DIR / "experiments_results" / "models"
+EXPERIMENTS_DIR = Path(__file__).parent.parent  # advanced_ensemble ディレクトリ
+MODELS_DIR = EXPERIMENTS_DIR / "results" / "models"
 
 # ディレクトリ作成
 EXPERIMENTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,7 +44,7 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # 実験管理設定
 EXPERIMENT_NAME = f"advanced_ensemble_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-EXPERIMENT_DIR = EXPERIMENTS_DIR / "experiments_results" / EXPERIMENT_NAME
+EXPERIMENT_DIR = EXPERIMENTS_DIR / "results" / "runs" / EXPERIMENT_NAME
 EXPERIMENT_DIR.mkdir(parents=True, exist_ok=True)
 
 print(f"🚀 実験開始: {EXPERIMENT_NAME}")
