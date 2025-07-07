@@ -36,59 +36,74 @@ kaggle competitions download -c neurips-open-polymer-prediction-2025
 unzip neurips-open-polymer-prediction-2025.zip -d data/raw/
 ```
 
-## 📁 プロジェクト構造（1対1対応設計）
+## 📁 プロジェクト構造
 
 ```
 neurips-open-polymer-prediction-2025/
-├── experiments/                       # ローカル実験環境
-│   ├── neurips_polymer_advanced_ensemble/  # ⟷ kaggle_notebooks/submission/neurips_polymer_advanced_ensemble/
-│   │   ├── config.yaml               # 実験設定
-│   │   ├── scripts/                  # ローカル実行スクリプト
-│   │   ├── results/                  # 実験結果
-│   │   └── README.md                 # 実験説明
+├── data/                          # データファイル
+│   ├── raw/                      # 生データ（train.csv, test.csv等）
+│   ├── processed/                # 前処理済みデータ
+│   └── external/                 # 外部データ
+│
+├── src/                           # ソースコード
+│   ├── data/                     # データ処理モジュール
+│   ├── features/                 # 特徴量エンジニアリング
+│   ├── models/                   # モデル定義
+│   ├── utils/                    # ユーティリティ関数
+│   └── visualization/            # 可視化関連
+│
+├── experiments/                   # 実験管理
+│   ├── baseline/                 # ベースライン実験
+│   │   ├── scripts/             # 実験スクリプト
+│   │   ├── config.yaml          # 実験設定
+│   │   ├── results/             # 実験結果
+│   │   │   ├── runs/           # 実行ごとの結果
+│   │   │   ├── models/         # 訓練済みモデル
+│   │   │   └── submissions/    # 提出ファイル
+│   │   └── logs/               # ログファイル
 │   │
-│   └── polymer_prediction_baseline/   # ⟷ kaggle_notebooks/submission/polymer_prediction_baseline/
-│       ├── config.yaml
-│       ├── scripts/
-│       ├── results/
-│       └── README.md
-│
-├── kaggle_notebooks/                  # Kaggle提出用ノートブック
-│   ├── submission/                    # 提出用（experiments/と1対1対応）
-│   │   ├── neurips_polymer_advanced_ensemble/
-│   │   │   ├── neurips_polymer_advanced_ensemble.ipynb
-│   │   │   ├── kernel-metadata.json
-│   │   │   └── install_dependencies.py
-│   │   │
-│   │   └── polymer_prediction_baseline/
-│   │       ├── polymer_prediction_baseline.ipynb
-│   │       └── kernel-metadata.json
+│   ├── advanced_ensemble/        # アドバンスドアンサンブル実験
+│   │   └── （同様の構造）
 │   │
-│   ├── templates/                     # 再利用可能テンプレート
-│   └── references/                    # 参考ノートブック
+│   └── archive/                  # 過去の実験
 │
-├── workflows/                         # 実験⇔Kaggle変換ツール
-│   ├── local_to_kaggle.py            # ローカル → Kaggle変換
-│   └── create_new_experiment.py      # 新実験セットアップ
+├── notebooks/                     # Jupyter/Kaggleノートブック
+│   ├── development/              # 開発・分析用ノートブック
+│   │   └── templates/           # テンプレート
+│   ├── kaggle/                  # Kaggle提出用
+│   │   ├── active/             # 現在使用中のノートブック
+│   │   │   ├── advanced_ensemble_v9/
+│   │   │   └── baseline/
+│   │   └── archive/            # 過去のバージョン
+│   └── references/              # 参考ノートブック
 │
-├── data/                             # データディレクトリ
-│   ├── raw/                          # 生データ
-│   ├── processed/                    # 前処理済みデータ
-│   └── external/                     # 外部データ
+├── models/                        # 共有モデル
+│   ├── checkpoints/             # チェックポイント
+│   └── pretrained/              # 事前学習済みモデル
 │
-├── models/                           # モデル成果物
-├── scripts/                          # ユーティリティスクリプト
-├── src/                              # ソースコード
-├── docs/                             # ドキュメント
-└── tests/                            # テストコード
+├── docs/                          # ドキュメント
+│   ├── guides/                   # 使い方ガイド
+│   ├── experiments/              # 実験の説明
+│   └── archive/                  # 古い文書
+│
+├── scripts/                       # 共通スクリプト
+├── tests/                         # テストコード
+├── config/                        # 設定ファイル
+├── workflows/                     # ワークフロースクリプト
+└── .artifacts/                    # 一時ファイル（gitignore対象）
+    ├── wandb/                    # WandB関連
+    ├── catboost_info/            # CatBoost関連
+    └── tmp/                      # その他の一時ファイル
 ```
+
+詳細は[STRUCTURE.md](STRUCTURE.md)を参照してください。
 
 ## 🔄 実験-Kaggleノートブック 1対1対応
 
 | 実験名 | ローカル実験パス | Kaggleノートブックパス | 説明 |
 |--------|-----------------|-------------------|------|
-| **高度なアンサンブル** | `experiments/neurips_polymer_advanced_ensemble/` | `kaggle_notebooks/submission/neurips_polymer_advanced_ensemble/` | RDKit + XGBoost + CatBoost |
-| **ベースライン** | `experiments/polymer_prediction_baseline/` | `kaggle_notebooks/submission/polymer_prediction_baseline/` | 基本特徴量 + XGBoost |
+| **高度なアンサンブル** | `experiments/advanced_ensemble/` | `notebooks/kaggle/active/advanced_ensemble_v9/` | RDKit + XGBoost + CatBoost |
+| **ベースライン** | `experiments/baseline/` | `notebooks/kaggle/active/baseline/` | 基本特徴量 + XGBoost |
 
 ### 対応の原則
 - **同じ名前 = 同じ実験**: ディレクトリ名が一致
@@ -105,19 +120,19 @@ python create_new_experiment.py my_new_experiment --description "新しい実験
 
 ### ローカル実験の実行
 ```bash
-cd experiments/neurips_polymer_advanced_ensemble
+cd experiments/advanced_ensemble
 python scripts/local_experiment.py
 ```
 
 ### Kaggleノートブックへの変換
 ```bash
 cd workflows
-python local_to_kaggle.py neurips_polymer_advanced_ensemble
+python local_to_kaggle.py advanced_ensemble
 ```
 
 ### Kaggleへのアップロード
 ```bash
-cd kaggle_notebooks/submission/neurips_polymer_advanced_ensemble
+cd notebooks/kaggle/active/advanced_ensemble_v9
 kaggle kernels push -p .
 ```
 

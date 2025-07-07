@@ -5,7 +5,7 @@ experiment:
   name: "neurips_polymer_advanced_ensemble"
   description: "高度なアンサンブルモデルによるポリマー特性予測"
   version: "v2.0"
-  corresponding_kaggle_notebook: "kaggle_notebooks/submission/neurips_polymer_advanced_ensemble/"
+  corresponding_kaggle_notebook: "notebooks/kaggle/active/advanced_ensemble_v9/"
 
 # データパス設定
 data:
@@ -80,11 +80,11 @@ logging:
 
 # 結果保存設定
 output:
-  results_dir: "experiments_results"
-  models_dir: "experiments_results/models"
-  predictions_dir: "experiments_results/predictions"
-  logs_dir: "experiments_results/logs"
-  submission_file: "experiments_results/predictions/submission.csv"
+  results_dir: "results"
+  models_dir: "results/models"
+  predictions_dir: "results/predictions"
+  logs_dir: "logs"
+  submission_file: "results/submissions/submission.csv"
 
 # パフォーマンス設定
 performance:

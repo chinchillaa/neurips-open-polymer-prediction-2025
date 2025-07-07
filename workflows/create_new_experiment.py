@@ -18,7 +18,7 @@ def create_experiment_pair(experiment_name, description="", base_template="basel
     
     # パス設定
     local_exp_dir = project_root / "experiments" / experiment_name
-    kaggle_exp_dir = project_root / "kaggle_notebooks" / "submission" / experiment_name
+    kaggle_exp_dir = project_root / "notebooks" / "kaggle" / "active" / experiment_name
     
     print(f"🚀 新しい実験ペアを作成: {experiment_name}")
     print(f"📂 ローカル: {local_exp_dir}")
@@ -66,7 +66,7 @@ def create_local_experiment(exp_dir, name, description, base_template):
             "name": name,
             "description": description or f"{name} experiment",
             "version": "v1.0",
-            "corresponding_kaggle_notebook": f"kaggle_notebooks/submission/{name}/"
+            "corresponding_kaggle_notebook": f"notebooks/kaggle/active/{name}/"
         },
         "data": {
             "raw_data_dir": "../../data/raw",
@@ -107,7 +107,7 @@ def create_local_experiment(exp_dir, name, description, base_template):
 {description or f"{name} による実験"}
 
 ## 🔗 対応関係
-- **Kaggleノートブック**: `kaggle_notebooks/submission/{name}/`
+- **Kaggleノートブック**: `notebooks/kaggle/active/{name}/`
 - **実験名**: {name}
 - **バージョン**: v1.0
 

@@ -112,5 +112,12 @@ tmp/
 # 中間成果物とバックアップ
 work_backup/
 
-# 提出用Kaggleノートブック（アーカイブのみ除外）
-kaggle_notebooks/submission/archive/
+# 一時ファイルとアーティファクト
+.artifacts/
+
+# 実験結果（必要に応じてコミット対象から除外）
+experiments/*/results/runs/
+experiments/*/logs/
+
+# ノートブックのアーカイブ
+notebooks/kaggle/archive/
