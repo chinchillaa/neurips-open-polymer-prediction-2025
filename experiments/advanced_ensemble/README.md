@@ -7,22 +7,23 @@
 ## ファイル構成
 
 ```
-experiments/neurips_polymer_advanced_ensemble/
+experiments/advanced_ensemble/
 ├── README.md                           # このファイル
 ├── config.yaml                         # 実験設定ファイル
 ├── scripts/                           # 実行スクリプト
-│   ├── local_experiment.py            # メイン実験スクリプト
+│   ├── local_experiment.py            # メイン実験スクリプト（WandB統合）
 │   ├── local_polymer_prediction.py    # ベースライン互換版
 │   └── run_experiment.sh              # 実行シェルスクリプト
-├── tests/                             # テスト用スクリプト
-│   ├── quick_test.py                   # クイックテスト
-│   ├── wandb_test.py                   # WandBテスト
-│   └── model_test.py                   # モデル検証テスト
-├── experiments_results/               # 実験結果
-│   ├── models/                       # 訓練済みモデル
+├── results/                           # 実験結果
+│   ├── runs/                         # 個別実験実行結果
+│   │   ├── advanced_ensemble_YYYYMMDD_HHMMSS/
+│   │   │   ├── metadata.json        # 実験メタデータ
+│   │   │   └── catboost_info/      # CatBoostログ
+│   │   └── latest -> [最新の実験へのシンボリックリンク]
+│   ├── models/                       # 共有訓練済みモデル
 │   ├── predictions/                  # 予測結果
-│   │   └── submission.csv           # Kaggle提出用ファイル
-│   └── logs/                        # 詳細ログ
+│   └── submissions/                  # Kaggle提出ファイル
+├── logs/                             # ログファイル
 └── wandb/                            # WandB実験ログ
     └── [WandB実験データ]
 ```
@@ -89,21 +90,21 @@ experiments/neurips_polymer_advanced_ensemble/
 # プロジェクトルートから実行
 cd neurips-open-polymer-prediction-2025
 
-# 基本実験
-./experiments/neurips_polymer_advanced_ensemble/scripts/run_experiment.sh
+# 基本実験（推奨方法）
+cd experiments/advanced_ensemble
+python scripts/local_experiment.py
+
+# 実験シェルスクリプト使用
+./scripts/run_experiment.sh
 
 # 依存関係インストール後実行
-./experiments/neurips_polymer_advanced_ensemble/scripts/run_experiment.sh --install
+./scripts/run_experiment.sh --install
 
 # RDKit含む完全インストール後実行
-./experiments/neurips_polymer_advanced_ensemble/scripts/run_experiment.sh --rdkit
+./scripts/run_experiment.sh --rdkit
 
-# WandB統合実験
-./experiments/neurips_polymer_advanced_ensemble/scripts/run_experiment.sh --wandb
-
-# 直接Python実行
-python experiments/neurips_polymer_advanced_ensemble/scripts/local_experiment.py
-python experiments/neurips_polymer_advanced_ensemble/scripts/local_experiment.py --use-wandb
+# WandB統合実験（オンラインモード）
+python scripts/local_experiment.py --online-wandb
 ```
 
 ### 出力
@@ -111,19 +112,17 @@ python experiments/neurips_polymer_advanced_ensemble/scripts/local_experiment.py
 実行後、以下が自動生成されます：
 
 ```
-experiments/neurips_polymer_advanced_ensemble/experiments_results/advanced_ensemble_YYYYMMDD_HHMMSS/
+experiments/advanced_ensemble/results/runs/advanced_ensemble_YYYYMMDD_HHMMSS/
 ├── metadata.json        # 実験設定・結果の完全記録
-├── config_used.yaml     # 使用した設定のコピー
-├── models/              # 訓練済みモデル（.pkl形式）
-│   ├── Tg_models.pkl
-│   ├── e_models.pkl
-│   └── ...
-├── predictions/         # 予測結果
-│   ├── submission.csv   # Kaggle提出用予測ファイル
-│   └── cv_predictions.csv # クロスバリデーション予測
-└── logs/                # 詳細ログ
-    ├── experiment.log   # 実行ログ
-    └── feature_importance.json # 特徴量重要度
+├── catboost_info/      # CatBoostの訓練ログ
+└── [その他の実験結果ファイル]
+
+# WandB実行ログ（オフラインモード）
+experiments/advanced_ensemble/wandb/offline-run-YYYYMMDD_HHMMSS-xxxxxxxx/
+├── files/
+│   └── metadata.json   # WandBにアップロードされるメタデータ
+├── run-xxxxxxxx.wandb  # 実験データ
+└── logs/               # WandBログ
 ```
 
 ## 設定オプション
@@ -268,9 +267,140 @@ python local_to_kaggle.py neurips_polymer_advanced_ensemble
    - グリッドサーチの並列実行
    - 結果の自動分析・レポート生成
 
+## 実験運用の知見
+
+### 📝 Kaggle環境でのRDKit導入
+
+Kaggleノートブックでは、RDKitのインストールが課題となります。以下の方法で解決：
+
+1. **kernel-metadata.jsonの設定**:
+   ```json
+   {
+     "dataset_sources": ["richolson/rdkit-install-whl"],
+     ...
+   }
+   ```
+   
+2. **ノートブック内でのインストール**:
+   ```python
+   # RDKitデータセットからwheelファイルをインストール
+   import subprocess
+   import sys
+   import os
+   
+   # 複数のパスパターンを試す
+   rdkit_paths = [
+       '/kaggle/input/rdkit-install-whl/rdkit_wheel',
+       '/kaggle/input/rdkit-install-whl',
+       '/kaggle/input/rdkit-whl',
+       '/kaggle/input/rdkit'
+   ]
+   
+   for path in rdkit_paths:
+       if os.path.exists(path):
+           whl_files = [f for f in os.listdir(path) if f.endswith('.whl')]
+           if whl_files:
+               subprocess.check_call([sys.executable, '-m', 'pip', 'install', 
+                                    os.path.join(path, whl_files[0])])
+               break
+   ```
+
+### 🗂️ 実験結果の管理
+
+新しいディレクトリ構造での管理方法：
+
+1. **実験結果の配置**:
+   - 全ての実験結果は`results/runs/`以下に保存
+   - 最新の実験は`latest`シンボリックリンクで参照可能
+   - 例: `results/runs/advanced_ensemble_20250707_153814/`
+
+2. **WandB統合**:
+   ```python
+   # オフラインモードで実行（Kaggle環境用）
+   wandb_available, wandb_run = init_wandb(offline_mode=True)
+   
+   # 実験後のアップロード
+   cd wandb && wandb sync offline-run-YYYYMMDD_HHMMSS-xxxxxxxx
+   ```
+
+3. **実験の再現性**:
+   - `metadata.json`に全ての設定と結果を記録
+   - 実行時のRDKit可用性も記録
+   - ハイパーパラメータと重みも保存
+
+### 🎯 実験実行のベストプラクティス
+
+1. **環境確認**:
+   ```bash
+   # 仮想環境の有効化
+   source .venv/bin/activate
+   
+   # パッケージ確認
+   python -c "import pandas, numpy, sklearn, xgboost, catboost, wandb; print('✅ OK')"
+   ```
+
+2. **実験実行**:
+   ```bash
+   cd experiments/advanced_ensemble
+   python scripts/local_experiment.py
+   ```
+
+3. **結果の確認**:
+   ```bash
+   # 最新の実験結果
+   ls -la results/runs/latest/
+   
+   # WandBアップロード
+   cd wandb && wandb sync offline-run-*
+   ```
+
+### 📊 実行結果例（2025年7月7日）
+
+```
+実験名: advanced_ensemble_20250707_153814
+実行時間: 467.62秒（約7分47秒）
+RDKit: 利用可能（100特徴量）
+
+推定wMAE結果:
+- WeightedEnsemble: 0.2953（最良）
+- XGBoost: 0.2960
+- SimpleEnsemble: 0.2976
+- CatBoost: 0.2977
+
+特性別最良モデル:
+- Tg: WeightedEnsemble (MAE: 53.13)
+- FFV: XGBoost (MAE: 0.0074)
+- Tc: CatBoost (MAE: 0.0289)
+- Density: XGBoost (MAE: 0.0352)
+- Rg: WeightedEnsemble (MAE: 1.677)
+```
+
+### 🔧 トラブルシューティング（追加）
+
+1. **ディレクトリ構造の確認**:
+   ```bash
+   # 実験ディレクトリ構造の確認
+   tree experiments/advanced_ensemble -d -L 3
+   ```
+
+2. **WandBオフライン同期エラー**:
+   ```bash
+   # API認証の確認
+   wandb login --verify
+   
+   # 手動でのアップロード
+   wandb sync --sync-all wandb/
+   ```
+
+3. **メモリ効率化**:
+   - 特徴量を段階的に生成
+   - バッチ処理の実装
+   - 不要な中間データの削除
+
 ## 貢献者向けガイドライン
 
 - 新しい実験はこのテンプレートに従って作成
-- 実験結果は必ず`experiments_results/`に保存
+- 実験結果は必ず`results/runs/`に保存
 - 設定変更は`config.yaml`で管理
 - 重要な変更は`metadata.json`に記録
+- Kaggleノートブックとの1対1対応を維持
