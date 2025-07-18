@@ -33,11 +33,11 @@ model:
     # XGBoost設定（特性別最適化済み）
     xgboost:
       Tg:
-        n_estimators: 1000
-        learning_rate: 0.01
-        max_depth: 7
-        subsample: 0.9
-        colsample_bytree: 0.8
+        n_estimators: 1500
+        learning_rate: 0.015
+        max_depth: 8
+        subsample: 0.8
+        colsample_bytree: 0.9
       FFV:
         n_estimators: 2000
         learning_rate: 0.005
@@ -47,11 +47,11 @@ model:
     
     # CatBoost設定
     catboost:
-      iterations: 1000
-      learning_rate: 0.03
-      depth: 6
-      l2_leaf_reg: 3
-      verbose: false
+      iterations: 1500
+      learning_rate: 0.025
+      depth: 7
+      l2_leaf_reg: 4
+      verbose: true
 
 # 特徴量設定
 features:

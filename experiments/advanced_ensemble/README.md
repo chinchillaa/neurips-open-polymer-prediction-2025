@@ -198,6 +198,19 @@ conda create -n polymer-pred python=3.9 rdkit
 conda activate polymer-pred
 ```
 
+### NumPy互換性問題
+RDKitとNumPyのバージョン互換性に注意が必要です：
+- **問題**: RDKit 2022.9.5はNumPy 1.xでコンパイルされているため、NumPy 2.0以降では動作しません
+- **エラー例**: `AttributeError: _ARRAY_API not found`
+- **解決方法**:
+  ```bash
+  # NumPyを1.x系にダウングレード
+  pip install "numpy<2"
+  # またはuvを使用
+  uv pip install "numpy<2"
+  ```
+- **推奨バージョン**: numpy==1.26.4（2024年1月時点の最新1.x系）
+
 ### メモリエラー
 - 設定ファイルで特徴量数を削減：`max_features: 200`
 - モデルのパラメータを調整：`n_estimators`を削減

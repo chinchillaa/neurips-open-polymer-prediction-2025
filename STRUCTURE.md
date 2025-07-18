@@ -83,3 +83,15 @@ neurips-open-polymer-prediction-2025/
 ## 一時ファイル
 
 全ての一時ファイルは`.artifacts/`に集約され、gitignoreで除外されます。
+
+## 依存関係の注意事項
+
+### NumPyとRDKitの互換性
+- **RDKit 2022.9.5**はNumPy 1.xでコンパイルされています
+- **NumPy 2.0以降**を使用すると`AttributeError: _ARRAY_API not found`エラーが発生
+- **解決方法**: `pip install "numpy<2"` または `uv pip install "numpy<2"`
+- **推奨環境**:
+  - numpy==1.26.4
+  - rdkit-pypi==2022.9.5
+  
+これは特に分子特徴量を使用するadvanced_ensemble実験で重要です。
